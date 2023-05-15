@@ -1,36 +1,103 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
+import random
+import torch
+
+def aggregate_attention(attn):
+    '''Extract attention vector mapping onto preceding token'''
+    last_layer_attns = attn[-1].squeeze(0)
+    last_layer_attns_per_head = last_layer_attns.mean(dim=0)
+    return torch.concat(
+        (last_layer_attns_per_head[-1], torch.tensor([0.]))
+    )
+
+def heterogenous_stack(vecs):
+    '''Pad vectors with zeros then stack'''
+    max_length = max(v.shape[0] for v in vecs)
+    return torch.stack([
+        torch.concat((v, torch.zeros(max_length - v.shape[0])))
+        for v in vecs
+    ])
 
 tokenizer = AutoTokenizer.from_pretrained('gpt2')
 model = AutoModelForCausalLM.from_pretrained('gpt2')
 
-def generate_response(prompt):
-    inputs = tokenizer.encode(prompt, return_tensors="pt")
-    prompt_length = inputs.shape[1]
-    print('input tokens: {}'.format(prompt_length))
-    outputs = model.generate(inputs, max_new_tokens=10, output_attentions=True, return_dict_in_generate=True)
-    return outputs
+def decode(tokens):
+    '''Turn tokens into text with mapping index'''
+    full_text = ''
+    offset = 0
+    token_index = [0]
+    chunks = []
+    for i, token in enumerate(tokens):
+        text = tokenizer.decode(token)
+        full_text += text
+        offset += len(text)
+        token_index.append(offset)
+        chunks.append(text)
+    print('|'.join(chunks))
+    return full_text, token_index
 
-def decode_response(sequences, prompt):
-    inputs = tokenizer.encode(prompt, return_tensors="pt")
-    prompt_length = inputs.shape[1]
-    new_token_ids = sequences[0, prompt_length:]
-    # generated text sequence
-    return tokenizer.decode(new_token_ids, skip_special_tokens=True)
+def get_completion(prompt):
+    '''Get full text, token mapping, and attention matrix for a completion'''
+    tokens = tokenizer.encode(prompt, return_tensors="pt")
+    outputs = model.generate(
+        tokens,
+        max_new_tokens=5,
+        output_attentions=True,
+        return_dict_in_generate=True
+    )
+    sequences = outputs.sequences
+    attn_m = heterogenous_stack([
+        torch.tensor([
+            1 if i == j else 0
+            for j, token in enumerate(tokens[0])
+        ])
+        for i, token in enumerate(tokens[0])
+    ] + list(map(aggregate_attention, outputs.attentions)))
+    decoded, token_index = decode(sequences[0])
+    return decoded, token_index, attn_m
 
-def aggregate_attention(attn):
-    # TODO: might want to do something multiplicative rather than just take final layer, not sure
-    last_layer_attns = attn[-1].squeeze(0)
-    last_layer_attns_per_head = last_layer_attns.mean(dim=0)  # (sequence_length, sequence_length)
-    return last_layer_attns_per_head[-1]
+def choose_range(token_index):
+    '''Choose subset range from token_index'''
+    choices = set([])
+    while len(list(choices)) != 2:
+        choices = set(random.choices(token_index, k=2))
+    return sorted(list(choices))
+
+def text_to_token_range(token_index, rng):
+    '''Convert text range into token range'''
+    a, b = token_index.index(rng[0]), token_index.index(rng[1])
+    xs = [
+        1. if (i <= b and i >= a) else 0.
+        for i, _ in enumerate(token_index)
+    ][1:]
+    return torch.tensor(xs) / sum(xs)
+
+def highlight_range(text, rng):
+    '''Annotate a string with a given subset range'''
+    front = text[:rng[0]]
+    mid = text[rng[0]:rng[1]]
+    back = text[rng[1]:]
+    return front + '{' + mid + '}' + back
+
+def show_matrix(xs):
+    for x in xs:
+        line = ''
+        for y in x:
+            line += '{:.4f}\t'.format(float(y))
+        print(line)
 
 prompt = """
-In the beginning
-""".strip()
+The quick brown
+""".strip().replace('\n', ' ')
 
-outputs = generate_response(prompt)
-sequences = outputs.sequences
-print(decode_response(sequences, prompt))
+result, token_index, attn_m = get_completion(prompt)
+show_matrix(attn_m)
+text_range = choose_range(token_index)
+# visualize the randomly chosen range of the text
+print(highlight_range(result, text_range))
 
-attns = outputs.attentions
-for attn in attns:
-    print(aggregate_attention(attn))
+focus_vec = text_to_token_range(token_index, text_range)
+attn_vec = torch.matmul(focus_vec, attn_m)
+
+# output the attention vector computed from attention matrix and focus vector
+print(attn_vec)
