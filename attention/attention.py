@@ -8,11 +8,16 @@ def aggregate_attention(attn):
     for layer in attn:
         layer_attns = layer.squeeze(0)
         attns_per_head = layer_attns.mean(dim=0)
-        # We zero the first entry because it's what's called
-        # null attention (https://aclanthology.org/W19-4808.pdf)
         vec = torch.concat((
+            # We zero the first entry because it's what's called
+            # null attention (https://aclanthology.org/W19-4808.pdf)
             torch.tensor([0.]),
+            # usually there's only one item in attns_per_head but
+            # on the first generation, there's a row for each token
+            # in the prompt as well, so take [-1]
             attns_per_head[-1][1:],
+            # add zero for the final generated token, which never
+            # gets any attention
             torch.tensor([0.]),
         ))
         avged.append(vec / vec.sum())
