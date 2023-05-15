@@ -4,11 +4,19 @@ import torch
 
 def aggregate_attention(attn):
     '''Extract attention vector mapping onto preceding token'''
-    last_layer_attns = attn[-1].squeeze(0)
-    last_layer_attns_per_head = last_layer_attns.mean(dim=0)
-    return torch.concat(
-        (last_layer_attns_per_head[-1], torch.tensor([0.]))
-    )
+    avged = []
+    for layer in attn:
+        layer_attns = layer.squeeze(0)
+        attns_per_head = layer_attns.mean(dim=0)
+        # We zero the first entry because it's what's called
+        # null attention (https://aclanthology.org/W19-4808.pdf)
+        vec = torch.concat((
+            torch.tensor([0.]),
+            attns_per_head[-1][1:],
+            torch.tensor([0.]),
+        ))
+        avged.append(vec / vec.sum())
+    return torch.stack(avged).mean(dim=0)
 
 def heterogenous_stack(vecs):
     '''Pad vectors with zeros then stack'''
