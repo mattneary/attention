@@ -46,17 +46,18 @@ def decode(tokens):
         offset += len(text)
         token_index.append(offset)
         chunks.append(text)
-    print('|'.join(chunks))
-    return full_text, token_index
+    return full_text, chunks
 
 def get_completion(prompt):
     '''Get full text, token mapping, and attention matrix for a completion'''
     tokens = tokenizer.encode(prompt, return_tensors="pt")
     outputs = model.generate(
         tokens,
-        max_new_tokens=5,
+        max_new_tokens=50,
         output_attentions=True,
-        return_dict_in_generate=True
+        return_dict_in_generate=True,
+        early_stopping=True,
+        length_penalty=-1
     )
     sequences = outputs.sequences
     attn_m = heterogenous_stack([
@@ -66,31 +67,8 @@ def get_completion(prompt):
         ])
         for i, token in enumerate(tokens[0])
     ] + list(map(aggregate_attention, outputs.attentions)))
-    decoded, token_index = decode(sequences[0])
-    return decoded, token_index, attn_m
-
-def choose_range(token_index):
-    '''Choose subset range from token_index'''
-    choices = set([])
-    while len(list(choices)) != 2:
-        choices = set(random.choices(token_index, k=2))
-    return sorted(list(choices))
-
-def text_to_token_range(token_index, rng):
-    '''Convert text range into token range'''
-    a, b = token_index.index(rng[0]), token_index.index(rng[1])
-    xs = [
-        1. if (i <= b and i >= a) else 0.
-        for i, _ in enumerate(token_index)
-    ][1:]
-    return torch.tensor(xs) / sum(xs)
-
-def highlight_range(text, rng):
-    '''Annotate a string with a given subset range'''
-    front = text[:rng[0]]
-    mid = text[rng[0]:rng[1]]
-    back = text[rng[1]:]
-    return front + '{' + mid + '}' + back
+    decoded, tokenized = decode(sequences[0])
+    return decoded, tokenized, attn_m
 
 def show_matrix(xs):
     for x in xs:
@@ -98,19 +76,3 @@ def show_matrix(xs):
         for y in x:
             line += '{:.4f}\t'.format(float(y))
         print(line)
-
-prompt = """
-The quick brown
-""".strip().replace('\n', ' ')
-
-result, token_index, attn_m = get_completion(prompt)
-show_matrix(attn_m)
-text_range = choose_range(token_index)
-# visualize the randomly chosen range of the text
-print(highlight_range(result, text_range))
-
-focus_vec = text_to_token_range(token_index, text_range)
-attn_vec = torch.matmul(focus_vec, attn_m)
-
-# output the attention vector computed from attention matrix and focus vector
-print(attn_vec)

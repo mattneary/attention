@@ -1,0 +1,81 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta charset="utf8" />
+    <title>Attention</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js" integrity="sha512-VW8/i4IZkHxdD8OlqNdF7fGn3ba0+lYqag+Uy4cG6BtJ/LIr8t23s/vls70pQ41UasHH0tL57GQfKDApqc9izA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>
+      p {
+        width: 700px;
+        margin: 1em auto;
+        color: #4d4d4d;
+        font-family: sans-serif;
+        font-size: 15px;
+        line-height: 1.5em;
+      }
+      h1 {
+        width: 700px;
+        text-align: left;
+        margin: 1em auto;
+        margin-bottom: 0;
+      }
+      span {
+        background: #d2f4d3;
+      }
+      span.prompt {
+        --attention: 0;
+        background-color: rgba(185, 225, 244, var(--attention));
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Attention Tracing</h1>
+    <p id="content"></p>
+    <script type="text/javascript">
+      const content = document.querySelector('#content')
+      const isPrompt = row => {
+        const p = row.filter(x => x).length === 1
+        return p
+      }
+      let tokens = []
+      let attn_m = []
+      const redraw = () => {
+        if (!window.getSelection().isCollapsed) {
+          const sel = window.getSelection()
+          const fromNode = sel.anchorNode.parentNode
+          const toNode = sel.extentNode.parentNode
+          const fromIdx = Array.from(content.children).indexOf(fromNode)
+          const toIdx = Array.from(content.children).indexOf(toNode)
+          const range = [fromIdx, toIdx]
+          range.sort()
+          const vec = tokens.map((x, i) => (i >= range[0] && i <= range[1]) ? 1 : 0)
+          const attn_vec = math.multiply(vec, attn_m)
+          Array.from(content.children).forEach((node, i) => {
+            const attn = attn_vec[i]
+            node.style.setProperty('--attention', Math.min(1, attn * 5).toFixed(2))
+          })
+        } else {
+          Array.from(content.children).forEach((node, i) => {
+            node.style.setProperty('--attention', '0')
+          })
+        }
+      }
+      document.addEventListener('mousemove', redraw)
+      document.addEventListener('mouseup', redraw)
+      fetch('/attention').then(async res => {
+        const data = await res.json()
+        console.log(data)
+        data.tokens.forEach((t, i) => {
+          const token = document.createElement('span')
+          token.innerText = t
+          if (isPrompt(data.attn_m[i])) {
+            token.classList.add('prompt')
+          }
+          content.appendChild(token)
+        })
+        tokens = data.tokens
+        attn_m = data.attn_m
+      })
+    </script>
+  </body>
+</html>

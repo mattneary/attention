@@ -18,14 +18,11 @@ Why model attention as a matrix? Given attention matrix `m` you can model
 a range of text as focus vector `f` and then multiply
 `torch.matmul(f, m)` to get the attention vector for that range.
 
-Generalizing further, attention can be composed through matrix
-multiplication. The goal of this project is to validate the
-attention matrix as a building block to support further inquiries
-into attention multiplication.
-
+When you run the flask app, you can use an interactive demo in which attention
+weights for selected text are visualized.
 
 ## How to Run
 
 ```sh
-$ poetry run python attention/attention.py
+$ flask --app attention run
 ```
