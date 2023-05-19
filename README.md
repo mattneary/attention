@@ -19,7 +19,9 @@ a range of text as focus vector `f` and then multiply
 `torch.matmul(f, m)` to get the attention vector for that range.
 
 When you run the flask app, you can use an interactive demo in which attention
-weights for selected text are visualized.
+weights for selected text are visualized:
+
+![attention highlighting](demo.gif)
 
 ## How to Run
 
