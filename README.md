@@ -6,7 +6,7 @@
 > with explanation, it can offer plausible and meaningful
 > interpretations. (Abnar and Zuidema, 2020)
 
-Attention is the key invention of the transformer architecture that
+Attention is the key mechanism of the transformer architecture that
 powers GPT and other LLMs. This project exposes the attention
 weights of an LLM run, aggregated into a matrix.
 
