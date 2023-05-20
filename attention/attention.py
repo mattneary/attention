@@ -1,9 +1,8 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import random
 import torch
 
 def aggregate_attention(attn):
-    '''Extract attention vector mapping onto preceding token'''
+    '''Extract average attention vector'''
     avged = []
     for layer in attn:
         layer_attns = layer.squeeze(0)
@@ -37,14 +36,10 @@ model = AutoModelForCausalLM.from_pretrained('gpt2')
 def decode(tokens):
     '''Turn tokens into text with mapping index'''
     full_text = ''
-    offset = 0
-    token_index = [0]
     chunks = []
     for i, token in enumerate(tokens):
         text = tokenizer.decode(token)
         full_text += text
-        offset += len(text)
-        token_index.append(offset)
         chunks.append(text)
     return full_text, chunks
 
