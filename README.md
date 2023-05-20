@@ -26,5 +26,6 @@ weights for selected text are visualized:
 ## How to Run
 
 ```sh
-$ flask --app attention run
+$ poetry install
+$ poetry run flask --app attention run
 ```
