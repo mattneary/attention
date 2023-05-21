@@ -37,6 +37,13 @@
         const p = row.filter(x => x).length === 1
         return p
       }
+      const fromSparse = (size, indices, values) => {
+        let xs = Array.from({length: size}, () => Array.from({length: size}, () => 0))
+        indices.forEach(([i, j], x) => {
+          xs[i][j] = values[x]
+        })
+        return xs
+      }
       let tokens = []
       let attn_m = []
       const redraw = () => {
@@ -47,7 +54,7 @@
           const fromIdx = Array.from(content.children).indexOf(fromNode)
           const toIdx = Array.from(content.children).indexOf(toNode)
           const range = [fromIdx, toIdx]
-          range.sort()
+          range.sort((a, b) => a - b)
           const vec = tokens.map((x, i) => (i >= range[0] && i <= range[1]) ? 1 : 0)
           const attn_vec = math.multiply(vec, attn_m)
           Array.from(content.children).forEach((node, i) => {
@@ -65,16 +72,16 @@
       fetch('/attention').then(async res => {
         const data = await res.json()
         console.log(data)
+        tokens = data.tokens
+        attn_m = fromSparse(tokens.length, data.attn_indices, data.attn_values)
         data.tokens.forEach((t, i) => {
           const token = document.createElement('span')
           token.innerText = t
-          if (isPrompt(data.attn_m[i])) {
+          if (isPrompt(attn_m[i])) {
             token.classList.add('prompt')
           }
           content.appendChild(token)
         })
-        tokens = data.tokens
-        attn_m = data.attn_m
       })
     </script>
   </body>

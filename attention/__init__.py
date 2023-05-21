@@ -14,10 +14,13 @@ A:
 """.strip()
 
 result, tokenized, attn_m = get_completion(prompt)
+sparse = attn_m.to_sparse()
 
 @app.route("/attention")
 def attention_view():
+    indices, values = sparse.indices(), sparse.values()
     return json.dumps({
         'tokens': tokenized,
-        'attn_m': attn_m.numpy().tolist(),
+        'attn_indices': indices.T.numpy().tolist(),
+        'attn_values': values.numpy().tolist(),
     })
