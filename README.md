@@ -29,3 +29,5 @@ weights for selected text are visualized:
 $ poetry install
 $ poetry run flask --app attention run
 ```
+
+Once it's running, you can access the demo at `http://127.0.0.1:5000/static/index.html`.
