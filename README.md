@@ -8,7 +8,7 @@
 
 Attention is the key mechanism of the transformer architecture that
 powers GPT and other LLMs. This project exposes the attention
-weights of an LLM run, aggregated into a matrix.
+weights of an LLM run, aggregated into a single matrix by averaging across layers and attention heads.
 
 Here's an example of what the matrix output of this project will look like:
 
